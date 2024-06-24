@@ -24,7 +24,8 @@ services:
     networks:
       - app-network
     volumes:
-      - ./shard:/app
+      - shard1-data:/app/filesystem
+
   shard2:
     build:
       context: ./shard
@@ -36,7 +37,8 @@ services:
     networks:
       - app-network
     volumes:
-      - ./shard:/app
+      - shard2-data:/app/filesystem
+
   shard3:
     build:
       context: ./shard
@@ -48,8 +50,13 @@ services:
     networks:
       - app-network
     volumes:
-      - ./shard:/app
+      - shard3-data:/app/filesystem
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  shard1-data:
+  shard2-data:
+  shard3-data:
