@@ -10,16 +10,16 @@ app = FastAPI()
 filesystem_root = Path("filesystem")
 filesystem_root.mkdir(exist_ok=True)
 
+class ChunkUpload(BaseModel):
+    chunk_hash: str
+    content: str
+
 @app.get("/")
 def read_root():
     shard_id = os.environ.get("SHARD_ID", "unknown")
     return {"message": f"Hello from shard {shard_id}"}
 
-class ChunkUpload(BaseModel):
-    chunk_hash: str
-    content: str
-
-@app.post("/upload")
+@app.post("/chunk")
 async def upload_file(item: ChunkUpload):
     chunk_hash = item.chunk_hash
     
@@ -35,7 +35,18 @@ async def upload_file(item: ChunkUpload):
     with full_path.open("wb") as f:
         f.write(item.content.encode("utf-8"))
 
-    return JSONResponse(content={"message": f"File saved to {full_path}"}, status_code=201)
+    return JSONResponse(content={"message": f"Chunk saved to {os.environ.get('SHARD_ID')}"}, status_code=201)
+
+@app.get("/chunk/{chunk_hash}")
+async def get_chunk(chunk_hash: str):
+    full_path = filesystem_root / chunk_hash
+    if not full_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    with full_path.open("rb") as f:
+        content = f.read().decode("utf-8")
+    
+    return JSONResponse(content={"chunk_hash": chunk_hash, "content": content}, status_code=200)
 
 if __name__ == "__main__":
     import uvicorn
