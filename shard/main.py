@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
@@ -16,15 +16,15 @@ def read_root():
     return {"message": f"Hello from shard {shard_id}"}
 
 class ChunkUpload(BaseModel):
-    filepath: str
-    chunk: UploadFile = File(...)
+    chunk_hash: str
+    content: str
 
 @app.post("/upload")
 async def upload_file(item: ChunkUpload):
-    filepath = item.filepath
+    chunk_hash = item.chunk_hash
     
     # Ensure the provided filepath is within the filesystem root
-    full_path = filesystem_root / filepath
+    full_path = filesystem_root / chunk_hash
     if not full_path.resolve().is_relative_to(filesystem_root.resolve()):
         raise HTTPException(status_code=400, detail="Invalid filepath")
 
@@ -33,8 +33,7 @@ async def upload_file(item: ChunkUpload):
 
     # Save the uploaded file
     with full_path.open("wb") as f:
-        content = await item.chunk.read()
-        f.write(content)
+        f.write(item.content.encode("utf-8"))
 
     return JSONResponse(content={"message": f"File saved to {full_path}"}, status_code=201)
 
