@@ -16,16 +16,32 @@ services:
       - SHARD_1_HOST=${SHARD_1_HOST}
       - SHARD_2_HOST=${SHARD_2_HOST}
       - SHARD_3_HOST=${SHARD_3_HOST}
-      - MYSQL_HOST=mysql
+      - MYSQL_HOST=mysql-auth
       - MYSQL_PORT=${MYSQL_PORT}
       - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_DATABASE=${MYSQL_DATABASE_AUTH}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     networks:
       - app-network
     volumes:
       - ./server:/app
     depends_on:
-      - mysql
+      - mysql-auth
+
+  mysql-auth:
+    image: mysql:8.4.0
+    ports:
+      - "${MYSQL_PORT_AUTH}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_AUTH}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      - app-network
+    restart: always
+    volumes:
+      - mysql-auth-data:/var/lib/mysql
 
   mysql:
     image: mysql:8.4.0
@@ -138,6 +154,7 @@ networks:
 
 volumes:
   mysql-data:
+  mysql-auth-data:
   shard1-data:
   shard2-data:
   shard3-data:
