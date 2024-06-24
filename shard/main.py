@@ -14,6 +14,9 @@ filesystem_root.mkdir(exist_ok=True)
 class ChunkUpload(BaseModel):
     chunk_hash: str
     content: str
+    
+class ChunksDelete(BaseModel):
+    chunk_hashes: list
 
 @app.get("/")
 def read_root():
@@ -67,6 +70,17 @@ async def get_chunk(chunk_hash: str):
         content = f.read().decode("utf-8")
     
     return JSONResponse(content={"chunk_hash": chunk_hash, "content": content}, status_code=200)
+
+@app.delete("/chunk")
+async def delete_chunks(item: ChunksDelete):
+    chunk_hashes = item.chunk_hashes
+    
+    for chunk_hash in chunk_hashes:
+        full_path = filesystem_root / chunk_hash
+        if full_path.exists():
+            os.remove(full_path)
+    
+    return JSONResponse(content={"message": "Chunks deleted successfully"}, status_code=200)
 
 if __name__ == "__main__":
     import uvicorn
