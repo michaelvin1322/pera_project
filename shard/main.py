@@ -1,4 +1,5 @@
 import os
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -34,6 +35,25 @@ async def upload_file(item: ChunkUpload):
     # Save the uploaded file
     with full_path.open("wb") as f:
         f.write(item.content.encode("utf-8"))
+        
+    if os.environ.get("IS_MASTER"):
+        # Send to the queue
+        queue_host = os.environ.get("QUEUE_HOST")
+        queue_port = os.environ.get("QUEUE_PORT")
+        
+        queue_url = f"http://{queue_host}:{queue_port}/enqueue?target=shard{os.environ.get('SHARD_ID')}_replica"
+        
+        payload = {
+            "chunk_hash": item.chunk_hash,
+            "content": item.content
+        }
+        
+        try:
+            response = requests.post(queue_url, json=payload)
+            response.raise_for_status()
+            print(f"Chunk successfully sent to queue service")
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"Failed to send chunk to queue service: {str(e)}")
 
     return JSONResponse(content={"message": f"Chunk saved to {os.environ.get('SHARD_ID', '1')}"}, status_code=201)
 
