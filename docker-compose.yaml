@@ -8,6 +8,13 @@ services:
       - "${PERA_SERVER_PORT}:${PERA_SERVER_PORT}"
     environment:
       - PORT=${PERA_SERVER_PORT}
+      - SHARDS_AMOUNT=${SHARDS_AMOUNT}
+      - SHARD_1_PORT=${SHARD_1_PORT}
+      - SHARD_2_PORT=${SHARD_2_PORT}
+      - SHARD_3_PORT=${SHARD_3_PORT}
+      - SHARD_1_HOST=${SHARD_1_HOST}
+      - SHARD_2_HOST=${SHARD_2_HOST}
+      - SHARD_3_HOST=${SHARD_3_HOST}
     networks:
       - app-network
     volumes:
@@ -35,6 +42,7 @@ services:
     environment:
       - SHARD_ID=1
       - PORT=${SHARD_1_PORT}
+      - IS_MASTER=true
     networks:
       - app-network
     volumes:
@@ -48,6 +56,7 @@ services:
     environment:
       - SHARD_ID=2
       - PORT=${SHARD_2_PORT}
+      - IS_MASTER=true
     networks:
       - app-network
     volumes:
@@ -61,6 +70,7 @@ services:
     environment:
       - SHARD_ID=3
       - PORT=${SHARD_3_PORT}
+      - IS_MASTER=true
     networks:
       - app-network
     volumes:
@@ -74,6 +84,7 @@ services:
     environment:
       - SHARD_ID=1
       - PORT=${SHARD_1_REPLICA_1_PORT}
+      - IS_MASTER=false
     networks:
       - app-network
     volumes:
@@ -87,6 +98,7 @@ services:
     environment:
       - SHARD_ID=2
       - PORT=${SHARD_2_REPLICA_1_PORT}
+      - IS_MASTER=false
     networks:
       - app-network
     volumes:
@@ -100,6 +112,7 @@ services:
     environment:
       - SHARD_ID=3
       - PORT=${SHARD_3_REPLICA_1_PORT}
+      - IS_MASTER=false
     networks:
       - app-network
     volumes:
