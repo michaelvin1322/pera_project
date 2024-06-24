@@ -31,27 +31,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     networks:
       - app-network
+    restart: always
     volumes:
       - mysql-data:/var/lib/mysql
-
-  queue:
-    build:
-      context: ./queue
-    ports:
-      - "${QUEUE_PORT}:${QUEUE_PORT}"
-    environment:
-      PORT: ${QUEUE_PORT}
-      MYSQL_HOST: mysql
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    depends_on:
-      - mysql
-    networks:
-      - app-network
-    volumes:
-      - ./queue:/app
 
   shard1:
     build:
@@ -62,8 +44,8 @@ services:
       - SHARD_ID=1
       - PORT=${SHARD_1_PORT}
       - IS_MASTER=true
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
+      - REPLICA_HOST=${SHARD_1_REPLICA_1_HOST}
+      - REPLICA_PORT=${SHARD_1_REPLICA_1_PORT}
     networks:
       - app-network
     volumes:
@@ -78,8 +60,8 @@ services:
       - SHARD_ID=2
       - PORT=${SHARD_2_PORT}
       - IS_MASTER=true
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
+      - REPLICA_HOST=${SHARD_2_REPLICA_1_HOST}
+      - REPLICA_PORT=${SHARD_2_REPLICA_1_PORT}
     networks:
       - app-network
     volumes:
@@ -94,8 +76,8 @@ services:
       - SHARD_ID=3
       - PORT=${SHARD_3_PORT}
       - IS_MASTER=true
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
+      - REPLICA_HOST=${SHARD_3_REPLICA_1_HOST}
+      - REPLICA_PORT=${SHARD_3_REPLICA_1_PORT}
     networks:
       - app-network
     volumes:
@@ -110,8 +92,6 @@ services:
       - SHARD_ID=1
       - PORT=${SHARD_1_REPLICA_1_PORT}
       - IS_MASTER=false
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
     networks:
       - app-network
     volumes:
@@ -126,8 +106,6 @@ services:
       - SHARD_ID=2
       - PORT=${SHARD_2_REPLICA_1_PORT}
       - IS_MASTER=false
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
     networks:
       - app-network
     volumes:
@@ -142,8 +120,6 @@ services:
       - SHARD_ID=3
       - PORT=${SHARD_3_REPLICA_1_PORT}
       - IS_MASTER=false
-      - QUEUE_HOST=${QUEUE_HOST}
-      - QUEUE_PORT=${QUEUE_PORT}
     networks:
       - app-network
     volumes:
