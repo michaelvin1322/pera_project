@@ -5,7 +5,8 @@ import json
 import requests
 from typing import Annotated
 from pathlib import Path
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dataclasses import dataclass
 from typing import List, Dict
@@ -48,7 +49,7 @@ def to_hash_sha256(input_file_path: str) -> str:
 
 
 def resolve_path(path) :
-    return Path(path).resolve()
+    return str(Path(path).resolve())
 
 
 @dataclass
@@ -78,7 +79,7 @@ def save_to_schema_master(data : ChunkData) :
     SCHEMA_MASTER_FILE[data.user_id]['files'][data.file_path] = {
         'file_size': data.file_size,
         'chunks': [{
-            'shard_id' : c.shard_id, 
+            'shard_id' : c.shard_id,
             'chunk_hash' : c.chunk_hash, 
             'chunk_size': c.chunk_size
             } for c in data.chunks]
@@ -90,8 +91,42 @@ def save_to_schema_master(data : ChunkData) :
         file.write(json.dumps(SCHEMA_MASTER_FILE, indent=2))
 
 
-def read_from_schema_master(file_path : str) :
-    return
+def read_from_schema_master(user_id, file_path : str) :
+    print(json.dumps(SCHEMA_MASTER_FILE, indent=2))
+    print(user_id)
+    print(file_path)
+
+    if user_id not in SCHEMA_MASTER_FILE :
+        return None
+    if file_path not in SCHEMA_MASTER_FILE[user_id]['files'] :
+        return None
+    return SCHEMA_MASTER_FILE[user_id]['files'][file_path]['chunks']
+
+
+def delete_from_schema_master(user_id, file_path : str) :
+    print(json.dumps(SCHEMA_MASTER_FILE, indent=2))
+    print(user_id)
+    print(file_path)
+
+    if user_id not in SCHEMA_MASTER_FILE :
+        return False
+    if file_path not in SCHEMA_MASTER_FILE[user_id]['files'] :
+        return False
+    SCHEMA_MASTER_FILE[user_id]['files'].pop(file_path)
+    return True
+
+
+def read_size_from_schema_master(user_id, file_path : str) :
+    print(json.dumps(SCHEMA_MASTER_FILE, indent=2))
+    print(user_id)
+    print(file_path)
+
+    if user_id not in SCHEMA_MASTER_FILE :
+        return None
+    if file_path not in SCHEMA_MASTER_FILE[user_id]['files'] :
+        return None
+    return SCHEMA_MASTER_FILE[user_id]['files'][file_path]['file_size']
+
 
 class ChunkUpload(BaseModel):
     chunk_hash: str
@@ -151,11 +186,59 @@ async def upload_file(
     return {"filename": file.filename, 'data': data}
 
 
+@app.get("/file")
 async def get_file(file_path: Annotated[str, Form()]) :
-    
-    read_from_schema_master(resolve_path(file_path))
+    shards = get_shards_uri()
 
-    
+    chunks = read_from_schema_master(str(USER_ID), resolve_path(file_path))
+    print(chunks)
+    file_array = []
+    if not chunks:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    for chunk in chunks :
+        shard_uri = '%s/chunk/%s' % (shards[int(chunk['shard_id'])], chunk['chunk_hash'])
+        headers = {"Content-Type": "application/json"}
+        response = requests.get(shard_uri, headers=headers)
+        print(response)
+        print(response.text)
+        file_array.append(json.loads(response.text)['content'])
+    return StreamingResponse(iter(file_array), media_type="text/plain", headers={"Content-Disposition": f"attachment; filename={os.path.basename(file_path)}"})
+
+
+@app.get("/file_size")
+async def get_file_size(file_path: Annotated[str, Form()]) :
+    file_size = read_size_from_schema_master(str(USER_ID), resolve_path(file_path))
+    print(file_size)
+    if not file_size:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return {
+        'file_path': file_path,
+        'file_size': file_size}
+
+
+@app.delete("/file")
+async def delete_file(file_path: Annotated[str, Form()]) :
+    shards = get_shards_uri()
+
+    chunks = read_from_schema_master(str(USER_ID), resolve_path(file_path))
+    print(chunks)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    shard_hashes = [ [] for _ in range(len(shards)) ]
+
+    for chunk in chunks :
+        shard_hashes[chunk['shard_id']].append(chunk['chunk_hash'])
+
+    for shard_id in range(len(shards)) :
+        shard_uri = '%s/chunk' % shards[shard_id]
+        headers = {"Content-Type": "application/json"}
+        response = requests.delete(shard_uri, headers=headers, json=shard_hashes[shard_id])
+        print(response)
+    delete_from_schema_master(str(USER_ID), resolve_path(file_path))
+    return Response(status_code=204)
 
 
 if __name__ == "__main__":
