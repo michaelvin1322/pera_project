@@ -6,19 +6,39 @@ import requests
 import logging
 from typing import Annotated
 from pathlib import Path
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Response
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Response, Depends, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from dataclasses import dataclass
 from typing import List
+from sqlalchemy.orm import Session
+import schemas
+import crud
+from database import engine, Base, get_db
+
 
 CHUNK_SIZE = int(os.environ.get('CHUNK_SIZE', 1024))
-USER_NAME = 'admin'
 SCHEMA_MASTER_FILE = {}
 SCHEMA_MASTER_FILE_PATH = '/app/schema_master.json'
 HEADERS = { 'Content-Type': 'application/json' }
+FILE_NOT_FOUND = "File not found"
+
+
+# ===================================================================================
+
 
 app = FastAPI()
+Base.metadata.create_all(bind=engine)
+security = HTTPBasic()
+
+
+# ===================================================================================
+
+
+class User(BaseModel):
+    username: str
+    hashed_password: str
 
 
 @dataclass
@@ -38,6 +58,47 @@ class ChunkData:
 class ChunkUpload(BaseModel):
     chunk_hash: str
     content: str
+
+
+# ===================================================================================
+
+
+@app.post("/users/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_username(db, username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    return crud.create_user(db=db, user=user)
+
+
+@app.get("/users/me", response_model=schemas.User)
+def read_users_me(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, credentials.username, credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return user
+
+
+def get_current_username(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, credentials.username, credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return user.username
+
+
+@app.get("/users/username")
+def read_current_user(username: Annotated[str, Depends(get_current_username)]):
+    return {"username": username}
+
+# ===================================================================================
 
 
 def get_shards_uri() :
@@ -149,6 +210,9 @@ def read_size_from_schema_master(user_id, file_path : str) :
     return SCHEMA_MASTER_FILE[user_id]['files'][file_path]['file_size']
 
 
+# ===================================================================================
+
+
 @app.get("/")
 def read_root():
     return {"message": "Hello, World!"}
@@ -157,14 +221,16 @@ def read_root():
 @app.post("/upload")
 async def upload_file(
     file: Annotated[UploadFile, File()],
-    file_path: Annotated[str, Form()] ):
+    file_path: Annotated[str, Form()],
+    username: Annotated[str, Depends(get_current_username)]):
+
     logging.info("REST request to upload new file : %s", file_path)
 
     shards = get_shards_uri()
     chunk_id = 0
 
     data = ChunkData(
-        user_id = str(USER_NAME),
+        user_id = username,
         file_path = resolve_path(file_path),
         file_size = file.size,
         chunks = []
@@ -180,14 +246,13 @@ async def upload_file(
         next_shard, shard_id = get_next_shard_uri(shards)
         next_shard = next_shard + '/chunk'
 
-        chunk_hash = to_hash_sha256('%d-%s-%d' % (USER_NAME, file_path, chunk_id))
+        chunk_hash = to_hash_sha256('%s-%s-%d' % (username, file_path, chunk_id))
         chunk_upload = ChunkUpload(
             chunk_hash = chunk_hash,
             content = chunk_content)
 
         chunk_upload_dict = chunk_upload.dict()
-        headers = {"Content-Type": "application/json"}
-        response = requests.post(next_shard, json=chunk_upload_dict, headers=headers)
+        response = requests.post(next_shard, json=chunk_upload_dict, headers=HEADERS)
 
         if response.status_code == 201 :
             data.chunks.append(Chunk(
@@ -206,11 +271,15 @@ async def upload_file(
 
 
 @app.get("/file")
-async def get_file(file_path: Annotated[str, Form()]) :
+async def get_file(
+    file_path: Annotated[str, Form()],
+    username: Annotated[str, Depends(get_current_username)]) :
+
     logging.info("REST request to get file : %s", file_path)
+
     shards = get_shards_uri()
 
-    chunks = read_from_schema_master(str(USER_NAME), resolve_path(file_path))
+    chunks = read_from_schema_master(username, resolve_path(file_path))
 
     file_array = []
     if not chunks:
@@ -218,8 +287,7 @@ async def get_file(file_path: Annotated[str, Form()]) :
 
     for chunk in chunks :
         shard_uri = '%s/chunk/%s' % (shards[int(chunk['shard_id'])], chunk['chunk_hash'])
-        headers = {"Content-Type": "application/json"}
-        response = requests.get(shard_uri, headers=headers)
+        response = requests.get(shard_uri, headers=HEADERS)
 
         if response.status_code == 200 :
             file_array.append(json.loads(response.text)['content'])
@@ -228,12 +296,16 @@ async def get_file(file_path: Annotated[str, Form()]) :
 
 
 @app.get("/file_size")
-async def get_file_size(file_path: Annotated[str, Form()]) :
+async def get_file_size(
+    file_path: Annotated[str, Form()],
+    username: Annotated[str, Depends(get_current_username)]) :
+
     logging.info("REST request to get file size of %s", file_path)
-    file_size = read_size_from_schema_master(str(USER_NAME), resolve_path(file_path))
+
+    file_size = read_size_from_schema_master(username, resolve_path(file_path))
 
     if not file_size:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail=FILE_NOT_FOUND)
 
     return {
         'file_path': file_path,
@@ -241,14 +313,18 @@ async def get_file_size(file_path: Annotated[str, Form()]) :
 
 
 @app.delete("/file")
-async def delete_file(file_path: Annotated[str, Form()]) :
+async def delete_file(
+    file_path: Annotated[str, Form()],
+    username: Annotated[str, Depends(get_current_username)]) :
+
     logging.info('REST request to delete file : %s', file_path)
+
     shards = get_shards_uri()
 
-    chunks = read_from_schema_master(str(USER_NAME), resolve_path(file_path))
+    chunks = read_from_schema_master(username, resolve_path(file_path))
 
     if not chunks:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail=FILE_NOT_FOUND)
 
     shard_hashes = [ [] for _ in range(len(shards)) ]
 
@@ -257,10 +333,9 @@ async def delete_file(file_path: Annotated[str, Form()]) :
 
     for shard_id in range(len(shards)) :
         shard_uri = '%s/chunk' % shards[shard_id]
-        headers = {"Content-Type": "application/json"}
-        requests.delete(shard_uri, headers=headers, json=shard_hashes[shard_id])
+        requests.delete(shard_uri, headers=HEADERS, json=shard_hashes[shard_id])
 
-    delete_from_schema_master(str(USER_NAME), resolve_path(file_path))
+    delete_from_schema_master(username, resolve_path(file_path))
     return Response(status_code=204)
 
 

@@ -16,10 +16,16 @@ services:
       - SHARD_1_HOST=${SHARD_1_HOST}
       - SHARD_2_HOST=${SHARD_2_HOST}
       - SHARD_3_HOST=${SHARD_3_HOST}
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     networks:
       - app-network
     volumes:
       - ./server:/app
+    depends_on:
+      - mysql
 
   mysql:
     image: mysql:8.4.0
