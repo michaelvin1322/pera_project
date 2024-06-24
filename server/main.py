@@ -13,14 +13,18 @@ app = FastAPI()
 
 def get_shards_uri() :
     shards = []
-    shards_amount = os.environ.get('SHARDS_AMOUNT')
+    shards_amount = int(os.environ.get('SHARDS_AMOUNT', 3))
     for i in range(shards_amount) :
-        shards.push('SHARD_%_HOST:SHARD_%_PORT' % (i, i))
+        shard_host_i = os.environ.get('SHARD_%d_HOST' % (i+1))
+        shard_port_i = os.environ.get('SHARD_%d_PORT' % (i+1))
+        shards.append('http://%s:%s' % (shard_host_i, shard_port_i))
+    # print(shards)
     return shards
 
 
 def get_next_shard_uri(shards) :
-    r = random.randint(1, len(shards))
+    r = random.randint(0, len(shards)-1)
+    print('rand', r)
     return shards[r]
 
 
@@ -57,19 +61,27 @@ async def upload_file(
     file_path: Annotated[str, Form()] ):
 
     shards = get_shards_uri()
+    chunk_id = 0
 
     while True:
         chunk = await file.read(CHUNK_SIZE)
         if not chunk :
             break
         chunk_content = chunk.decode('utf-8')
+        print(chunk_content)
         next_shard = get_next_shard_uri(shards) + '/chunk'
-        chunk_upload = ChunkUpload()
-        chunk_upload.chunk_hash = to_hash_sha256(file_path)
-        chunk_upload.content = chunk_content
-        response = requests.post(next_shard, data=chunk_upload)
+        print(next_shard)
+        chunk_upload = ChunkUpload(
+            chunk_hash = to_hash_sha256('%s-%d' % (file_path, chunk_id)),
+            content = chunk_content)
+        print(chunk_upload.chunk_hash)
+        print("POST")
+        chunk_upload_dict = chunk_upload.dict()
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(next_shard, json=chunk_upload_dict, headers=headers)
         print(response)
         print(response.text)
+        chunk_id = chunk_id + 1
 
     return {"filename": file.filename, "file_size": file.size, "file_path": resolve_path(file_path), "ct": file.content_type}
 
