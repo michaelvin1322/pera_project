@@ -25,6 +25,30 @@ services:
       - app-network
     volumes:
       - ./shard:/app
+  shard2:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_2_PORT}:${SHARD_2_PORT}"
+    environment:
+      - SHARD_ID=2
+      - PORT=${SHARD_2_PORT}
+    networks:
+      - app-network
+    volumes:
+      - ./shard:/app
+  shard3:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_3_PORT}:${SHARD_3_PORT}"
+    environment:
+      - SHARD_ID=3
+      - PORT=${SHARD_3_PORT}
+    networks:
+      - app-network
+    volumes:
+      - ./shard:/app
 
 networks:
   app-network:
