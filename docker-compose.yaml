@@ -34,6 +34,25 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
+  queue:
+    build:
+      context: ./queue
+    ports:
+      - "${QUEUE_PORT}:${QUEUE_PORT}"
+    environment:
+      PORT: ${QUEUE_PORT}
+      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+    volumes:
+      - ./queue:/app
+
   shard1:
     build:
       context: ./shard
