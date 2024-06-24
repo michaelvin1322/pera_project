@@ -10,6 +10,8 @@ services:
       - PORT=${PERA_SERVER_PORT}
     networks:
       - app-network
+    volumes:
+      - ./server:/app
 
   shard1:
     build:
@@ -21,6 +23,8 @@ services:
       - PORT=${SHARD_1_PORT}
     networks:
       - app-network
+    volumes:
+      - ./shard:/app
 
 networks:
   app-network:
