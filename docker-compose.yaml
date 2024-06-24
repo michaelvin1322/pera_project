@@ -13,6 +13,20 @@ services:
     volumes:
       - ./server:/app
 
+  mysql:
+    image: mysql:8.4.0
+    ports:
+      - "${MYSQL_PORT}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - mysql-data:/var/lib/mysql
+
   shard1:
     build:
       context: ./shard
@@ -52,11 +66,54 @@ services:
     volumes:
       - shard3-data:/app/filesystem
 
+  shard1_replica1:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_1_REPLICA_1_PORT}:${SHARD_1_REPLICA_1_PORT}"
+    environment:
+      - SHARD_ID=1
+      - PORT=${SHARD_1_REPLICA_1_PORT}
+    networks:
+      - app-network
+    volumes:
+      - shard1-replica1-data:/app/filesystem
+  
+  shard2_replica1:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_2_REPLICA_1_PORT}:${SHARD_2_REPLICA_1_PORT}"
+    environment:
+      - SHARD_ID=2
+      - PORT=${SHARD_2_REPLICA_1_PORT}
+    networks:
+      - app-network
+    volumes:
+      - shard2-replica1-data:/app/filesystem
+
+  shard3_replica1:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_3_REPLICA_1_PORT}:${SHARD_3_REPLICA_1_PORT}"
+    environment:
+      - SHARD_ID=3
+      - PORT=${SHARD_3_REPLICA_1_PORT}
+    networks:
+      - app-network
+    volumes:
+      - shard3-replica1-data:/app/filesystem
+
 networks:
   app-network:
     driver: bridge
 
 volumes:
+  mysql-data:
   shard1-data:
   shard2-data:
   shard3-data:
+  shard1-replica1-data:
+  shard2-replica1-data:
+  shard3-replica1-data:
