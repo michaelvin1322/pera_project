@@ -5,4 +5,23 @@ services:
     build:
       context: ./server
     ports:
-      - "4000:4000"
+      - "${PERA_SERVER_PORT}:${PERA_SERVER_PORT}"
+    environment:
+      - PORT=${PERA_SERVER_PORT}
+    networks:
+      - app-network
+
+  shard1:
+    build:
+      context: ./shard
+    ports:
+      - "${SHARD_1_PORT}:${SHARD_1_PORT}"
+    environment:
+      - SHARD_ID=1
+      - PORT=${SHARD_1_PORT}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
