@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List
 
 CHUNK_SIZE = int(os.environ.get('CHUNK_SIZE', 1024))
 USER_NAME = 'admin'
