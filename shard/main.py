@@ -16,7 +16,7 @@ class ChunkUpload(BaseModel):
 
 @app.get("/")
 def read_root():
-    shard_id = os.environ.get("SHARD_ID", "unknown")
+    shard_id = os.environ.get("SHARD_ID", "1")
     return {"message": f"Hello from shard {shard_id}"}
 
 @app.post("/chunk")
@@ -35,7 +35,7 @@ async def upload_file(item: ChunkUpload):
     with full_path.open("wb") as f:
         f.write(item.content.encode("utf-8"))
 
-    return JSONResponse(content={"message": f"Chunk saved to {os.environ.get('SHARD_ID')}"}, status_code=201)
+    return JSONResponse(content={"message": f"Chunk saved to {os.environ.get('SHARD_ID', '1')}"}, status_code=201)
 
 @app.get("/chunk/{chunk_hash}")
 async def get_chunk(chunk_hash: str):
