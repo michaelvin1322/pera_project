@@ -8,6 +8,7 @@ services:
       - "${PERA_SERVER_PORT}:${PERA_SERVER_PORT}"
     environment:
       - PORT=${PERA_SERVER_PORT}
+      - CHUNK_SIZE=${CHUNK_SIZE}
       - SHARDS_AMOUNT=${SHARDS_AMOUNT}
       - SHARD_1_PORT=${SHARD_1_PORT}
       - SHARD_2_PORT=${SHARD_2_PORT}
