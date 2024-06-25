@@ -329,7 +329,8 @@ async def delete_file(
 
     for shard_id in range(len(shards)) :
         shard_uri = '%s/chunk' % shards[shard_id]
-        requests.delete(shard_uri, headers=HEADERS, json=shard_hashes[shard_id])
+        payload = { "chunk_hashes": shard_hashes[shard_id] }
+        requests.delete(shard_uri, headers=HEADERS, json=payload)
 
     delete_from_schema_master(username, resolve_path(file_path))
     return Response(status_code=204)

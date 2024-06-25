@@ -91,7 +91,7 @@ async def upload_file(item: ChunkUpload):
         replica_host = os.environ.get("REPLICA_HOST")
         replica_port = os.environ.get("REPLICA_PORT")
         
-        queue_url = f"http://{replica_host}:{replica_port}/chunk"
+        replica_url = f"http://{replica_host}:{replica_port}/chunk"
         
         payload = {
             "chunk_hash": item.chunk_hash,
@@ -99,7 +99,7 @@ async def upload_file(item: ChunkUpload):
         }
         
         try:
-            response = requests.post(queue_url, json=payload)
+            response = requests.post(replica_url, json=payload)
             response.raise_for_status()
             print(f"Chunk successfully sent to replica service")
         except requests.exceptions.RequestException as e:
@@ -126,6 +126,23 @@ async def delete_chunks(item: ChunksDelete):
         full_path = filesystem_root / chunk_hash
         if full_path.exists():
             os.remove(full_path)
+            
+    if os.environ.get("IS_MASTER"):
+        replica_host = os.environ.get("REPLICA_HOST")
+        replica_port = os.environ.get("REPLICA_PORT")
+        
+        replica_url = f"http://{replica_host}:{replica_port}/chunk"
+        
+        payload = {
+            "chunk_hashes": chunk_hashes
+        }
+        
+        try:
+            response = requests.delete(replica_url, json=payload)
+            response.raise_for_status()
+            print(f"Chunks successfully deleted from replica service")
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to delete chunks from replica service: {str(e)}")
     
     return JSONResponse(content={"message": "Chunks deleted successfully"}, status_code=200)
 
