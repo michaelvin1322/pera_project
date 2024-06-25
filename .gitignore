@@ -2,3 +2,4 @@
 /**/filesystem
 schema_master.json
 /**/__pycache__
+.vscode

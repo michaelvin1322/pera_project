@@ -1,21 +1,20 @@
-import os
-import random
 import hashlib
 import json
-import requests
 import logging
-from typing import Annotated
-from pathlib import Path
+import os
+import random
+import requests
+
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Response, Depends, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import BaseModel
-from dataclasses import dataclass
-from typing import List
+from pathlib import Path
 from sqlalchemy.orm import Session
-import schemas
-import crud
-from database import engine, Base, get_db
+from typing import Annotated, List
+
+from crud import authenticate_user, get_user_by_username, create_user
+from database import Base, get_db, engine
+from schemas import User, UserCreate, Chunk, ChunkData, ChunkUpload
 
 
 CHUNK_SIZE = int(os.environ.get('CHUNK_SIZE', 1024))
@@ -36,44 +35,17 @@ security = HTTPBasic()
 # ===================================================================================
 
 
-class User(BaseModel):
-    username: str
-    hashed_password: str
-
-
-@dataclass
-class Chunk:
-    shard_id: int
-    chunk_hash: str
-    chunk_size: int
-
-@dataclass
-class ChunkData:
-    user_id: str
-    file_path: str
-    file_size: int
-    chunks: List[Chunk]
-
-
-class ChunkUpload(BaseModel):
-    chunk_hash: str
-    content: str
-
-
-# ===================================================================================
-
-
-@app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_username(db, username=user.username)
+@app.post("/users/", response_model=User)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return crud.create_user(db=db, user=user)
+    return create_user(db=db, user=user)
 
 
-@app.get("/users/me", response_model=schemas.User)
+@app.get("/users/me", response_model=User)
 def read_users_me(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db)):
-    user = crud.authenticate_user(db, credentials.username, credentials.password)
+    user = authenticate_user(db, credentials.username, credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -84,7 +56,7 @@ def read_users_me(credentials: HTTPBasicCredentials = Depends(security), db: Ses
 
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security), db: Session = Depends(get_db)):
-    user = crud.authenticate_user(db, credentials.username, credentials.password)
+    user = authenticate_user(db, credentials.username, credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
