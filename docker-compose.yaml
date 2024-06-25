@@ -17,7 +17,7 @@ services:
       - SHARD_2_HOST=${SHARD_2_HOST}
       - SHARD_3_HOST=${SHARD_3_HOST}
       - MYSQL_HOST=mysql-auth
-      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_PORT=3306
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_DATABASE=${MYSQL_DATABASE_AUTH}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
@@ -26,7 +26,8 @@ services:
     volumes:
       - ./server:/app
     depends_on:
-      - mysql-auth
+      mysql-auth:
+        condition: service_healthy
 
   mysql-auth:
     image: mysql:8.4.0
@@ -42,6 +43,11 @@ services:
     restart: always
     volumes:
       - mysql-auth-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mysql:
     image: mysql:8.4.0
