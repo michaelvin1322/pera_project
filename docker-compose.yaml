@@ -16,6 +16,12 @@ services:
       - SHARD_1_HOST=${SHARD_1_HOST}
       - SHARD_2_HOST=${SHARD_2_HOST}
       - SHARD_3_HOST=${SHARD_3_HOST}
+      - SHARD_1_REPLICA_1_HOST=${SHARD_1_REPLICA_1_HOST}
+      - SHARD_2_REPLICA_1_HOST=${SHARD_2_REPLICA_1_HOST}
+      - SHARD_3_REPLICA_1_HOST=${SHARD_3_REPLICA_1_HOST}
+      - SHARD_1_REPLICA_1_PORT=${SHARD_1_REPLICA_1_PORT}
+      - SHARD_2_REPLICA_1_PORT=${SHARD_2_REPLICA_1_PORT}
+      - SHARD_3_REPLICA_1_PORT=${SHARD_3_REPLICA_1_PORT}
       - MYSQL_HOST=mysql-auth
       - MYSQL_PORT=3306
       - MYSQL_USER=${MYSQL_USER}
@@ -49,26 +55,9 @@ services:
       timeout: 5s
       retries: 5
 
-  mysql:
-    image: mysql:8.4.0
-    ports:
-      - "${MYSQL_PORT}:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    networks:
-      - app-network
-    restart: always
-    volumes:
-      - mysql-data:/var/lib/mysql
-
   shard1:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_1_PORT}:${SHARD_1_PORT}"
     environment:
       - SHARD_ID=1
       - PORT=${SHARD_1_PORT}
@@ -83,8 +72,6 @@ services:
   shard2:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_2_PORT}:${SHARD_2_PORT}"
     environment:
       - SHARD_ID=2
       - PORT=${SHARD_2_PORT}
@@ -99,8 +86,6 @@ services:
   shard3:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_3_PORT}:${SHARD_3_PORT}"
     environment:
       - SHARD_ID=3
       - PORT=${SHARD_3_PORT}
@@ -115,8 +100,6 @@ services:
   shard1_replica1:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_1_REPLICA_1_PORT}:${SHARD_1_REPLICA_1_PORT}"
     environment:
       - SHARD_ID=1
       - PORT=${SHARD_1_REPLICA_1_PORT}
@@ -129,8 +112,6 @@ services:
   shard2_replica1:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_2_REPLICA_1_PORT}:${SHARD_2_REPLICA_1_PORT}"
     environment:
       - SHARD_ID=2
       - PORT=${SHARD_2_REPLICA_1_PORT}
@@ -143,8 +124,6 @@ services:
   shard3_replica1:
     build:
       context: ./shard
-    ports:
-      - "${SHARD_3_REPLICA_1_PORT}:${SHARD_3_REPLICA_1_PORT}"
     environment:
       - SHARD_ID=3
       - PORT=${SHARD_3_REPLICA_1_PORT}
@@ -159,7 +138,6 @@ networks:
     driver: bridge
 
 volumes:
-  mysql-data:
   mysql-auth-data:
   shard1-data:
   shard2-data:

@@ -86,6 +86,19 @@ def get_shards_uri() :
     return shards
 
 
+def get_replicas_uri() :
+    """
+    Request to get list of shards
+    """
+    replicas = []
+    replicas_amount = int(os.environ.get('SHARDS_AMOUNT', 3))
+    for i in range(replicas_amount) :
+        replica_host_i = os.environ.get('SHARD_%d_REPLICA_1_HOST' % (i+1))
+        replica_port_i = os.environ.get('SHARD_%d_REPLICA_1_PORT' % (i+1))
+        replicas.append('http://%s:%s' % (replica_host_i, replica_port_i))
+    return replicas
+
+
 def get_next_shard_uri(shards : List) :
     """
     Request to randomly get a shard from : @shards
@@ -250,6 +263,7 @@ async def get_file(
     logging.info("REST request to get file : %s", file_path)
 
     shards = get_shards_uri()
+    replicas = get_replicas_uri()
 
     chunks = read_from_schema_master(username, resolve_path(file_path))
 
@@ -259,9 +273,19 @@ async def get_file(
 
     for chunk in chunks :
         shard_uri = '%s/chunk/%s' % (shards[int(chunk['shard_id'])], chunk['chunk_hash'])
-        response = requests.get(shard_uri, headers=HEADERS)
+        replica_uri = '%s/chunk/%s' % (replicas[int(chunk['shard_id'])], chunk['chunk_hash'])
 
-        if response.status_code == 200 :
+        response = None
+        
+        try:
+            response = requests.get(shard_uri, headers=HEADERS)
+        except:
+            try:
+                response = requests.get(replica_uri, headers=HEADERS)
+            except:
+                pass
+
+        if response is not None and response.status_code == 200 :
             file_array.append(json.loads(response.text)['content'])
         else: raise HTTPException(status_code=400, detail="Error getting the file. Please try later.")
     return StreamingResponse(iter(file_array), media_type="text/plain", headers={"Content-Disposition": f"attachment; filename={os.path.basename(file_path)}"})
