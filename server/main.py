@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from typing import Annotated, List
 
-from crud import authenticate_user, get_user_by_username, create_user
+from crud import authenticate_user, get_user_by_username, create_user as crud_create_user
 from database import Base, get_db, engine
 from schemas import User, UserCreate, Chunk, ChunkData, ChunkUpload
 
@@ -40,7 +40,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return create_user(db=db, user=user)
+    return crud_create_user(db=db, user=user)
 
 
 @app.get("/users/me", response_model=User)
